@@ -8,7 +8,10 @@ gemfile(true) do
   git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
   gem "rails", github: "rails/rails"
+  gem "vernier"
 end
+
+ENV["RAILS_ENV"] = "production"
 
 require 'action_controller/railtie'
 
@@ -80,4 +83,25 @@ App.routes.draw do
   get '/i/:a' => 'main#i'
   get '/j/:a' => 'main#j'
   match '*unmatched', to: 'application#route_not_found', via: :all
+end
+
+env = {
+  "REQUEST_METHOD" => "GET",
+  "SCRIPT_NAME" => "",
+  "rack.input" => File.open("/dev/null"),
+  "PATH_INFO" => "/a/a",
+}.freeze
+
+if ENV["STACK"]
+  require "vernier"
+  envs = (1..10000).map { env.dup }
+
+  Vernier.trace(out: "tmp/time_profile.json") do
+    10000.times do |i|
+      App.call(envs[i])
+    end
+  end
+else
+  response = App.call(env.dup)
+  binding.irb
 end
