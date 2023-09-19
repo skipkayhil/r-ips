@@ -27,6 +27,19 @@ class App < Rails::Application
   config.logger = Logger.new('/dev/null')
   config.logger.level = 4
   config.log_level = :error 
+  routes.append do
+    get '/a/:a' => 'main#a'
+    get '/b/:a' => 'main#b'
+    get '/c/:a' => 'main#c'
+    get '/d/:a' => 'main#d'
+    get '/e/:a' => 'main#e'
+    get '/f/:a' => 'main#f'
+    get '/g/:a' => 'main#g'
+    get '/h/:a' => 'main#h'
+    get '/i/:a' => 'main#i'
+    get '/j/:a' => 'main#j'
+    match '*unmatched', to: 'application#route_not_found', via: :all
+  end
 end
 
 class ApplicationController < ActionController::Base
@@ -69,22 +82,6 @@ class MainController < ApplicationController
 end
 
 App.initialize!
-
-App.routes.clear!
-
-App.routes.draw do
-  get '/a/:a' => 'main#a'
-  get '/b/:a' => 'main#b'
-  get '/c/:a' => 'main#c'
-  get '/d/:a' => 'main#d'
-  get '/e/:a' => 'main#e'
-  get '/f/:a' => 'main#f'
-  get '/g/:a' => 'main#g'
-  get '/h/:a' => 'main#h'
-  get '/i/:a' => 'main#i'
-  get '/j/:a' => 'main#j'
-  match '*unmatched', to: 'application#route_not_found', via: :all
-end
 
 env = {
   "REQUEST_METHOD" => "GET",
