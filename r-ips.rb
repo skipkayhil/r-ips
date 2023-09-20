@@ -15,7 +15,7 @@ ENV["RAILS_ENV"] = "production"
 
 require 'action_controller/railtie'
 
-class App < Rails::Application
+class Rips < Rails::Application
   config.secret_key_base = 'foo'
   config.cache_classes = true
   config.eager_load = true
@@ -81,7 +81,8 @@ class MainController < ApplicationController
   end
 end
 
-App.initialize!
+Rails.application.initialize!
+App = Rails.application
 
 env = {
   "REQUEST_METHOD" => "GET",
