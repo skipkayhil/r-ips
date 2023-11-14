@@ -7,8 +7,10 @@ gemfile(true) do
 
   git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-  gem "rails", github: "rails/rails"
-  gem "vernier"
+  gem "rails", github: "rails/rails", require: false
+  gem "benchmark-ips", require: false
+  gem "memory_profiler", require: false
+  gem "vernier", require: false
 end
 
 ENV["RAILS_ENV"] = "production"
@@ -91,16 +93,30 @@ env = {
   "PATH_INFO" => "/a/a",
 }.freeze
 
+envs = (1..10000).map { env.dup }
+
 if ENV["STACK"]
   require "vernier"
-  envs = (1..10000).map { env.dup }
 
   Vernier.trace(out: "tmp/time_profile.json") do
-    10000.times do |i|
-      App.call(envs[i])
-    end
+    envs.each { App.call(_1) }
+  end
+elsif ENV["MEM"]
+  require "memory_profiler"
+
+  report = MemoryProfiler.report do
+    100.times { App.call(envs[_1]) }
+  end
+
+  report.pretty_print
+elsif ENV["IPS"]
+  require "benchmark/ips"
+
+  Benchmark.ips do |x|
+    x.report("1 request") { App.call(env.dup) }
+    x.compare!
   end
 else
-  response = App.call(env.dup)
+  response = App.call(envs[0])
   binding.irb
 end
