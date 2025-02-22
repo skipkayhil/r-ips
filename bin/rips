@@ -1,8 +1,9 @@
+#!/usr/bin/env ruby
 # frozen-string-literal: true
 
 require "bundler/inline"
 
-gemfile(true) do
+gemfile do
   source "https://rubygems.org"
 
   git_source(:github) { |repo| "https://github.com/#{repo}.git" }
