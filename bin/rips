@@ -1,6 +1,22 @@
 #!/usr/bin/env ruby
 # frozen-string-literal: true
 
+require "optparse"
+
+OPTIONS = {}
+OptionParser.new do |parser|
+  parser.on("-a [A]", ["ips", "mem", "profile"], "Action")
+end.parse!(into: OPTIONS)
+
+case OPTIONS[:a]
+when "ips"
+  require "benchmark/ips"
+when "mem"
+  require "memory_profiler"
+when "profile"
+  require "vernier"
+end
+
 require "bundler/inline"
 
 gemfile do
@@ -9,9 +25,6 @@ gemfile do
   git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
   gem "rails", github: "rails/rails", require: false
-  gem "benchmark-ips", require: false
-  gem "memory_profiler", require: false
-  gem "vernier", require: false
 end
 
 ENV["RAILS_ENV"] = "production"
@@ -28,23 +41,18 @@ env = {
 
 envs = (1..10000).map { env.dup }
 
-if ENV["STACK"]
-  require "vernier"
-
+case OPTIONS[:a]
+when "profile"
   Vernier.trace(out: "tmp/time_profile.json") do
     envs.each { App.call(_1) }
   end
-elsif ENV["MEM"]
-  require "memory_profiler"
-
+when "mem"
   report = MemoryProfiler.report do
     100.times { App.call(envs[_1]) }
   end
 
   report.pretty_print
-elsif ENV["IPS"]
-  require "benchmark/ips"
-
+when "ips"
   Benchmark.ips do |x|
     x.report("1 request") { App.call(env.dup) }
     x.compare!
