@@ -3,9 +3,10 @@
 
 require "optparse"
 
-OPTIONS = {}
+OPTIONS = { i: 10_000 }
 OptionParser.new do |parser|
   parser.on("-a [A]", ["ips", "mem", "profile"], "Action")
+  parser.on("-i [I]", Integer, "Iterations (default: 10000)")
 end.parse!(into: OPTIONS)
 
 case OPTIONS[:a]
@@ -39,7 +40,7 @@ env = {
   "PATH_INFO" => "/a/a",
 }.freeze
 
-envs = (1..10000).map { env.dup }
+envs = (1..OPTIONS[:i]).map { env.dup }
 
 case OPTIONS[:a]
 when "profile"
@@ -48,7 +49,7 @@ when "profile"
   end
 when "mem"
   report = MemoryProfiler.report do
-    100.times { App.call(envs[_1]) }
+    envs.each { App.call(_1) }
   end
 
   report.pretty_print
