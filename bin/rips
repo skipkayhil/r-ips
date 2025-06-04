@@ -7,58 +7,94 @@ OPTIONS = { i: 10_000 }
 OptionParser.new do |parser|
   parser.on("-a [A]", ["ips", "mem", "profile"], "Action")
   parser.on("-i [I]", Integer, "Iterations (default: 10000)")
+  parser.on("--path path_info", String, "PATH_INFO for request")
 end.parse!(into: OPTIONS)
+
+ENV["RAILS_ENV"] = "production"
+ENV["BACKTRACE"] = "1"
+
+class Rips
+  REQ = {
+    "REQUEST_METHOD" => "GET",
+    "SCRIPT_NAME" => "",
+    "rack.input" => File.open("/dev/null"),
+    "PATH_INFO" => OPTIONS[:path],
+  }.freeze
+
+  attr_reader :app
+
+  def initialize(i = OPTIONS[:i])
+    @envs = (1..i).map { REQ.dup }
+  end
+
+  def to_proc
+    method(:call).to_proc
+  end
+
+  def boot!
+    app_path = ARGV.first
+
+    if File.file?(app_path)
+      require "bundler/inline"
+
+      gemfile do
+        source "https://rubygems.org"
+
+        git_source(:github) { |repo| "https://github.com/#{repo}.git" }
+
+        gem "rails", github: "rails/rails", require: false
+      end
+
+      require File.expand_path("../#{app_path}", __dir__)
+
+      @app = App
+    else
+      require "#{app_path}/config/environment"
+
+      @app = Rails.application
+    end
+  end
+
+  # call exactly i times
+  def call(...)
+    @envs.each { app.call(_1) }
+  end
+
+  # call variable times (like for benchmark-ips)
+  def duperator
+    e = @envs.first
+    -> { app.call(e.dup) }
+  end
+end
 
 case OPTIONS[:a]
 when "ips"
   require "benchmark/ips"
-when "mem"
-  require "memory_profiler"
-when "profile"
-  require "vernier"
-end
 
-require "bundler/inline"
+  r = Rips.new(1)
+  r.boot!
 
-gemfile do
-  source "https://rubygems.org"
-
-  git_source(:github) { |repo| "https://github.com/#{repo}.git" }
-
-  gem "rails", github: "rails/rails", require: false
-end
-
-ENV["RAILS_ENV"] = "production"
-
-app_file = ARGV.first
-require File.expand_path("../#{app_file}", __dir__)
-
-env = {
-  "REQUEST_METHOD" => "GET",
-  "SCRIPT_NAME" => "",
-  "rack.input" => File.open("/dev/null"),
-  "PATH_INFO" => "/a/a",
-}.freeze
-
-envs = (1..OPTIONS[:i]).map { env.dup }
-
-case OPTIONS[:a]
-when "profile"
-  Vernier.trace(out: "tmp/time_profile.json") do
-    envs.each { App.call(_1) }
-  end
-when "mem"
-  report = MemoryProfiler.report do
-    envs.each { App.call(_1) }
-  end
-
-  report.pretty_print
-when "ips"
   Benchmark.ips do |x|
-    x.report("1 request") { App.call(env.dup) }
+    x.report("1 request", &r.duperator)
     x.compare!
   end
+when "mem"
+  require "memory_profiler"
+
+  r = Rips.new
+  r.boot!
+
+  MemoryProfiler.report(&r).pretty_print
+when "profile"
+  require "vernier"
+
+  r = Rips.new
+  r.boot!
+
+  Vernier.profile(out: "tmp/prof.json", &r)
 else
-  response = App.call(envs[0])
+  r = Rips.new(1)
+  r.boot!
+  response = r.duperator.call
   binding.irb
 end
